@@ -40,10 +40,10 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
                 handleConnect(message);
                 break;
             case "SEND":
-                handleSubscribe(message);
+                handleSend(message);
                 break;
             case "SUBSCRIBE":
-                handleSend(message);
+                handleSubscribe(message);
                 break;
             case "UNSUBSCRIBE":
                 handleUnsubscribe(message);
