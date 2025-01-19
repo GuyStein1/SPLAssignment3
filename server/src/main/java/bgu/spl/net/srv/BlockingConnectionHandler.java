@@ -33,6 +33,9 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
 
         // Register this handler in ConnectionsImpl to allow message sending
         connections.register(connectionId, this);
+
+        // Ensure the protocol is initialized with the correct connection info
+        protocol.start(connectionId, connections);
     }
 
     @Override
@@ -64,13 +67,15 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
         connections.disconnect(connectionId); // Remove client from active connections
         try {
             sock.close();
-        } catch (IOException ignored) {}
+        } catch (IOException ignored) {
+        }
     }
 
     // Sends a message to the client
     @Override
     public void send(T msg) {
-        if (!connected) return; // Do not send messages if the client is disconnected
+        if (!connected)
+            return; // Do not send messages if the client is disconnected
         try {
             byte[] encodedMsg = encdec.encode(msg);
             out.write(encodedMsg);

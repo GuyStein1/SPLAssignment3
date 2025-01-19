@@ -14,6 +14,12 @@ public abstract class BaseServer<T> implements Server<T> {
     private final Supplier<MessageEncoderDecoder<T>> encdecFactory;
     private ServerSocket sock;
 
+    // Added fields
+    // Shared connections manager
+    private final ConnectionsImpl<T> connections;
+    // Connection ID counter
+    private int connectionCounter = 0; 
+
     public BaseServer(
             int port,
             Supplier<MessagingProtocol<T>> protocolFactory,
@@ -23,6 +29,9 @@ public abstract class BaseServer<T> implements Server<T> {
         this.protocolFactory = protocolFactory;
         this.encdecFactory = encdecFactory;
 		this.sock = null;
+
+        // Initialize a single `ConnectionsImpl` instance
+        this.connections = new ConnectionsImpl<>(); 
     }
 
     @Override
@@ -33,6 +42,9 @@ public abstract class BaseServer<T> implements Server<T> {
 
             this.sock = serverSock; //just to be able to close
 
+            // Assign unieque connection IDs
+            int connectionId = connectionCounter++;
+
             while (!Thread.currentThread().isInterrupted()) {
 
                 Socket clientSock = serverSock.accept();
@@ -40,7 +52,9 @@ public abstract class BaseServer<T> implements Server<T> {
                 BlockingConnectionHandler<T> handler = new BlockingConnectionHandler<>(
                         clientSock,
                         encdecFactory.get(),
-                        protocolFactory.get());
+                        protocolFactory.get(),
+                        connections, // Shared `ConnectionsImpl` instance
+                        connectionId); // Unique connection ID for this client
 
                 execute(handler);
             }
