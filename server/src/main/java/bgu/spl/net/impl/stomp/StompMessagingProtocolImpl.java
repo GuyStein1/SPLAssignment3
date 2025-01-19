@@ -304,7 +304,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
      */
     private void sendError(String errorMessage, String receiptId, StompFrame originalMessage) {
         // Construct the ERROR frame body with the malformed frame and explanation
-        String body = "ERROR received:\n"
+        String body = "The message:\n"
                 + "-----\n"
                 + originalMessage.toString() + "\n"
                 + "-----\n"
@@ -312,7 +312,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
 
         // Construct headers
         Map<String, String> headers = new HashMap<>();
-        headers.put("message", "malformed frame received");
+        headers.put("message", " " + errorMessage);
 
         // Include the receipt ID if one was provided
         if (receiptId != null) {
