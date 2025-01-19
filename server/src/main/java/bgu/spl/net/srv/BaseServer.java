@@ -17,8 +17,9 @@ public abstract class BaseServer<T> implements Server<T> {
     // Added fields
     // Shared connections manager
     private final ConnectionsImpl<T> connections;
+
     // Connection ID counter
-    private int connectionCounter = 0; 
+    private int connectionCounter = 0;
 
     public BaseServer(
             int port,
@@ -28,26 +29,27 @@ public abstract class BaseServer<T> implements Server<T> {
         this.port = port;
         this.protocolFactory = protocolFactory;
         this.encdecFactory = encdecFactory;
-		this.sock = null;
+        this.sock = null;
 
         // Initialize a single `ConnectionsImpl` instance
-        this.connections = new ConnectionsImpl<>(); 
+        this.connections = new ConnectionsImpl<>();
     }
 
     @Override
     public void serve() {
 
         try (ServerSocket serverSock = new ServerSocket(port)) {
-			System.out.println("Server started");
+            System.out.println("Server started");
 
-            this.sock = serverSock; //just to be able to close
-
-            // Assign unieque connection IDs
-            int connectionId = connectionCounter++;
+            this.sock = serverSock; // just to be able to close
 
             while (!Thread.currentThread().isInterrupted()) {
 
                 Socket clientSock = serverSock.accept();
+
+                // Assign unieque connection IDs
+                connectionCounter++;
+                int connectionId = connectionCounter;
 
                 BlockingConnectionHandler<T> handler = new BlockingConnectionHandler<>(
                         clientSock,
@@ -66,10 +68,10 @@ public abstract class BaseServer<T> implements Server<T> {
 
     @Override
     public void close() throws IOException {
-		if (sock != null)
-			sock.close();
+        if (sock != null)
+            sock.close();
     }
 
-    protected abstract void execute(BlockingConnectionHandler<T>  handler);
+    protected abstract void execute(BlockingConnectionHandler<T> handler);
 
 }

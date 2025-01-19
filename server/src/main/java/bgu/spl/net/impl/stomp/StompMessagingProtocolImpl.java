@@ -35,6 +35,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
     @Override
     public void process(StompFrame message) {
         // Handle different STOMP commands
+        System.out.println(message.toString());
         switch (message.getCommand()) {
             case "CONNECT":
                 handleConnect(message);
@@ -189,6 +190,9 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
         topicSubscriptions.putIfAbsent(topic, new ConcurrentHashMap<>());
         topicSubscriptions.get(topic).put(connectionId, subscriptionId);
 
+        System.out.println("subscribe excecuted");
+        System.out.println(topicSubscriptions.toString());
+
         // Send RECEIPT if requested
         sendReceiptIfRequested(message.getHeader("receipt"));
     }
@@ -267,14 +271,16 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
         }
 
         // Retrieve the list of subscribers for the topic
+        System.out.println(topicSubscriptions.toString());
+        System.out.println("topic: " + topic);
         Map<Integer, Integer> subscribers = topicSubscriptions.get(topic);
 
         // Check if the sender is subscribed to the topic
-        if (subscribers == null || !subscribers.containsKey(connectionId)) {
-            sendError("You must be subscribed to topic: " + topic + " to send messages.", message.getHeader("receipt"),
-                    message);
-            return;
-        }
+        // if (subscribers == null || !subscribers.containsKey(connectionId)) {
+        //     sendError("You must be subscribed to topic " + topic + " to send messages.", message.getHeader("receipt"),
+        //             message);
+        //     return;
+        // }
 
         int messageId = messageCounter.incrementAndGet(); // Generate unique message ID
 
