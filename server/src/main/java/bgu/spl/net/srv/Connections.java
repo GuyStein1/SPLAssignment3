@@ -1,6 +1,7 @@
 package bgu.spl.net.srv;
 
 import java.io.IOException;
+import java.util.Map;
 
 public interface Connections<T> {
 
@@ -10,6 +11,18 @@ public interface Connections<T> {
 
     void disconnect(int connectionId);
 
-    // Added method to register client connections
+    // Added methods:
     void register(int connectionId, ConnectionHandler<T> handler);
+
+    boolean authenticateUser(String login, String passcode);
+
+    void removeSubscription(String topic, int connectionId);
+
+    void addSubscription(String topic, int connectionId, int subscriptionId);
+
+    int getNextMessageId();
+
+    Map<Integer, Integer> getSubscribers(String topic);
+
+
 }

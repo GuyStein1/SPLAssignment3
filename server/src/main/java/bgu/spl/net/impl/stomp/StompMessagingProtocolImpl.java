@@ -18,14 +18,6 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
     // Each client manages its own subscriptions: (subscriptionId -> topic)
     private final Map<Integer, String> clientSubscriptions = new HashMap<>();
 
-    // Shared topic subscriptions: (topic -> {connectionId -> subscriptionId})
-    private static final Map<String, Map<Integer, Integer>> topicSubscriptions = new ConcurrentHashMap<>();
-
-    // Stores valid user credentials (for authentication)
-    private static final Map<String, String> users = new ConcurrentHashMap<>();
-
-    private static final AtomicInteger messageCounter = new AtomicInteger(0); // Unique message ID counter
-
     @Override
     public void start(int connectionId, Connections<StompFrame> connections) {
         this.connectionId = connectionId;
@@ -35,7 +27,10 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
     @Override
     public void process(StompFrame message) {
         // Handle different STOMP commands
-        System.out.println(message.toString());
+
+        // Print for debugging
+        System.out.println("Processing: " + message.toString());
+
         switch (message.getCommand()) {
             case "CONNECT":
                 handleConnect(message);
@@ -69,7 +64,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
      */
     private void handleConnect(StompFrame message) {
         if (connected) {
-            sendError("Duplicate CONNECT command received.", message.getHeader("receipt"), message);
+            sendError("Duplicate login attempt.", message.getHeader("receipt"), message);
             return;
         }
 
@@ -87,16 +82,9 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
             return;
         }
 
-        // Check if the user already exists
-        if (users.containsKey(login)) {
-            // If the username exists but the password is incorrect, send an ERROR
-            if (!users.get(login).equals(passcode)) {
-                sendError("Invalid password for user: " + login, receiptId, message);
-                return;
-            }
-        } else {
-            // If the username does not exist, create a new user
-            users.put(login, passcode);
+        if (!connections.authenticateUser(login, passcode)) {
+            sendError("Invalid password for user: " + login, message.getHeader("receipt"), message);
+            return;
         }
 
         // Mark client as connected
@@ -129,18 +117,8 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
         shouldTerminate = true;
 
         // Remove the client from all their subscriptions
-        synchronized (topicSubscriptions) {
-            Iterator<Map.Entry<String, Map<Integer, Integer>>> iterator = topicSubscriptions.entrySet().iterator();
-            while (iterator.hasNext()) {
-                Map.Entry<String, Map<Integer, Integer>> entry = iterator.next();
-                Map<Integer, Integer> subscribers = entry.getValue();
-
-                subscribers.remove(connectionId); // Remove the client from this topic
-
-                if (subscribers.isEmpty()) {
-                    iterator.remove(); // Remove the topic if it has no more subscribers
-                }
-            }
+        for (String topic : clientSubscriptions.values()) {
+            connections.removeSubscription(topic, connectionId);
         }
 
         // Clear the client’s personal subscription tracking
@@ -187,11 +165,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
         clientSubscriptions.put(subscriptionId, topic);
 
         // Add client to the global topic subscription map
-        topicSubscriptions.putIfAbsent(topic, new ConcurrentHashMap<>());
-        topicSubscriptions.get(topic).put(connectionId, subscriptionId);
-
-        System.out.println("subscribe excecuted");
-        System.out.println(topicSubscriptions.toString());
+        connections.addSubscription(topic, connectionId, subscriptionId);
 
         // Send RECEIPT if requested
         sendReceiptIfRequested(message.getHeader("receipt"));
@@ -229,19 +203,14 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
 
         // Retrieve the topic the client is subscribed to under this `subscriptionId`
         String topic = clientSubscriptions.remove(subscriptionId);
+
         if (topic == null) {
             sendError("Subscription ID " + subscriptionId + " not found.", message.getHeader("receipt"), message);
             return;
         }
 
         // Remove the client from the topicSubscriptions map
-        Map<Integer, Integer> subscribers = topicSubscriptions.get(topic);
-        if (subscribers != null) {
-            subscribers.remove(connectionId);
-            if (subscribers.isEmpty()) {
-                topicSubscriptions.remove(topic);
-            }
-        }
+        connections.removeSubscription(topic, connectionId);
 
         sendReceiptIfRequested(message.getHeader("receipt"));
     }
@@ -270,23 +239,20 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
             return;
         }
 
-        // Retrieve the list of subscribers for the topic
-        System.out.println(topicSubscriptions.toString());
-        System.out.println("topic: " + topic);
-        Map<Integer, Integer> subscribers = topicSubscriptions.get(topic);
-
         // Check if the sender is subscribed to the topic
-        // if (subscribers == null || !subscribers.containsKey(connectionId)) {
-        //     sendError("You must be subscribed to topic " + topic + " to send messages.", message.getHeader("receipt"),
-        //             message);
-        //     return;
-        // }
+        if (!clientSubscriptions.containsValue(topic)) {
+            sendError("You must be subscribed to topic " + topic + " to send messages.",
+                    message.getHeader("receipt"),
+                    message);
+            return;
+        }
 
-        int messageId = messageCounter.incrementAndGet(); // Generate unique message ID
+        int messageId = connections.getNextMessageId(); // Generate unique message ID
 
-        // Send MESSAGE frame to all subscribers, including their unique
-        // `subscriptionId`
+        // Send MESSAGE frame to all subscribers, including their unique subscriptionId
+        Map<Integer, Integer> subscribers = connections.getSubscribers(topic);
         for (Map.Entry<Integer, Integer> entry : subscribers.entrySet()) {
+            
             int subscriberConnectionId = entry.getKey();
             int subscriptionId = entry.getValue(); // Get the correct subscriptionId for this subscriber
 

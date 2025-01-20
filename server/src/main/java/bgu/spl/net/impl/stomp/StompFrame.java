@@ -7,7 +7,7 @@ import java.util.Map;
  * The StompFrame class represents a single STOMP message (frame) exchanged between the client and server.
  * 
  * - STOMP messages have a structured format: 
- *   1. A command ("CONNECT", "SUBSCRIBE", "SEND").
+ *   1. A command.
  *   2. A set of headers (key-value pairs).
  *   3. A body.
  * - Instead of handling raw Strings for messages, we encapsulate them in a dedicated object, making parsing and
