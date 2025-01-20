@@ -29,7 +29,7 @@ public class StompServer {
         } else if (serverType.equalsIgnoreCase("reactor")) {
             // Reactor using `Server.reactor()`
             server = Server.<StompFrame>reactor(
-                4, // Number of threads (can be adjusted)
+                Runtime.getRuntime().availableProcessors(), 
                 port,
                 () -> new StompMessagingProtocolImpl(),
                 () -> new StompMessageEncoderDecoder()
