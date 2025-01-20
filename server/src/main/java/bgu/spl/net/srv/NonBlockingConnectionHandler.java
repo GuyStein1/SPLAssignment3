@@ -12,24 +12,41 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
 
-    private static final int BUFFER_ALLOCATION_SIZE = 1 << 13; //8k
+    private static final int BUFFER_ALLOCATION_SIZE = 1 << 13; // 8k
     private static final ConcurrentLinkedQueue<ByteBuffer> BUFFER_POOL = new ConcurrentLinkedQueue<>();
 
     private final MessagingProtocol<T> protocol;
     private final MessageEncoderDecoder<T> encdec;
     private final Queue<ByteBuffer> writeQueue = new ConcurrentLinkedQueue<>();
     private final SocketChannel chan;
-    private final Reactor reactor;
+    private final Reactor<T> reactor;
 
+    // Added fields
+    private final Connections<T> connections;
+    private final int connectionId;
+
+    // Adjusted constructor to initialize Connections and connectionId
     public NonBlockingConnectionHandler(
             MessageEncoderDecoder<T> reader,
             MessagingProtocol<T> protocol,
             SocketChannel chan,
-            Reactor reactor) {
+            Reactor<T> reactor,
+            Connections<T> connections,
+            int connectionId) {
         this.chan = chan;
         this.encdec = reader;
         this.protocol = protocol;
         this.reactor = reactor;
+
+        // Initialize new fields
+        this.connections = connections;
+        this.connectionId = connectionId;
+
+        // Register this handler in ConnectionsImpl to allow message sending
+        connections.register(connectionId, this);
+
+        // Ensure the protocol is initialized with the correct connection info
+        protocol.start(connectionId, connections);
     }
 
     public Runnable continueRead() {
@@ -49,11 +66,11 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
                     while (buf.hasRemaining()) {
                         T nextMessage = encdec.decodeNextByte(buf.get());
                         if (nextMessage != null) {
-                            // T response = protocol.process(nextMessage);
-                            // if (response != null) {
-                            //     writeQueue.add(ByteBuffer.wrap(encdec.encode(response)));
-                            //     reactor.updateInterestedOps(chan, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
-                            // }
+                            // Previously, the response was added directly to `writeQueue` here.
+                            // This caused writing to be mixed with reading logic.
+                            // Instead, we now call `protocol.process(nextMessage)`, and if a response
+                            // needs to be sent, it will be handled properly via `send(msg)`. 
+                            protocol.process(nextMessage);
                         }
                     }
                 } finally {
@@ -71,6 +88,8 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
     public void close() {
         try {
             chan.close();
+            // Remove client from Connections 
+            connections.disconnect(connectionId);
         } catch (IOException ex) {
             ex.printStackTrace();
         }
@@ -97,8 +116,10 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
         }
 
         if (writeQueue.isEmpty()) {
-            if (protocol.shouldTerminate()) close();
-            else reactor.updateInterestedOps(chan, SelectionKey.OP_READ);
+            if (protocol.shouldTerminate())
+                close();
+            else
+                reactor.updateInterestedOps(chan, SelectionKey.OP_READ);
         }
     }
 
@@ -116,8 +137,24 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
         BUFFER_POOL.add(buff);
     }
 
+    /*
+     *   Sends a message to the client.
+     * - Encodes the message and queues it for writing.
+     * - Registers the channel for writing in the Reactor.
+     */
     @Override
     public void send(T msg) {
-        //IMPLEMENT IF NEEDED
+        if (isClosed()) return; // Do not send if the connection is closed
+        try {
+            byte[] encodedMsg = encdec.encode(msg);
+            writeQueue.add(ByteBuffer.wrap(encodedMsg));
+            // Previously, writing logic was inside `continueRead()`, which mixed reading and writing.
+            // By moving message writing to `send()`, we ensure that outgoing messages are queued
+            // separately, making the implementation cleaner and avoiding potential race conditions.
+            reactor.updateInterestedOps(chan, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+        } catch (Exception e) {
+            e.printStackTrace();
+            close(); // Close connection on failure
+        }
     }
 }
