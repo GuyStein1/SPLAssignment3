@@ -47,7 +47,7 @@ public abstract class BaseServer<T> implements Server<T> {
 
                 Socket clientSock = serverSock.accept();
 
-                // Assign unieque connection IDs
+                // Assign unique connection IDs
                 connectionCounter++;
                 int connectionId = connectionCounter;
 
