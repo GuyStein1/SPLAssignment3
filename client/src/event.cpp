@@ -74,7 +74,7 @@ Event::Event(const std::string &frame_body): channel_name(""), city(""),
     while(getline(ss,line,'\n')){
         vector<string> lineArgs;
         if(line.find(':') != string::npos) {
-            split_str(line, ':', lineArgs);
+            KeyboardInput::split_str(line, ':', lineArgs);
             string key = lineArgs.at(0);
             string val;
             if(lineArgs.size() == 2) {

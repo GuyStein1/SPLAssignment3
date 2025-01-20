@@ -109,6 +109,8 @@ std::string StompProtocol::epochToDate(int epochTime) const {
     return oss.str();
 }
 
+
+// Method to generate summary output 
 void StompProtocol::summarizeEmergencyChannel(const std::string& channel, const std::string& user, const std::string& filePath) {
     std::vector<Event> relevantEvents;
 
