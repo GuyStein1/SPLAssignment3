@@ -1,119 +1,167 @@
-#include "../include/StompProtocol.h"
+#include "StompProtocol.h"
 #include <sstream>
 #include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <ctime>
+#include <algorithm>
 
-// Constructor (C++ automatically initializes hash maps)
-StompProtocol::StompProtocol() : connected(false) {}
+// Constructor initializes STOMP protocol with connection handler.
+StompProtocol::StompProtocol(ConnectionHandler &handler) : connectionHandler(handler), connected(false) {}
 
-// Processes a received STOMP frame from the server and handles messages.
-void StompProtocol::processServerMessage(const std::string& message, ConnectionHandler& connectionHandler) {
+// Sends a CONNECT frame to initiate connection.
+void StompProtocol::connect() {
+    std::map<std::string, std::string> headers = {{"accept-version", "1.2"}, {"host", "stomp.server"}};
+    send("CONNECT", headers, "");
+}
+
+// Sends a STOMP frame with given command, headers, and body.
+void StompProtocol::send(const std::string& command, const std::map<std::string, std::string>& headers, const std::string& body) {
+    if (!connected && command != "CONNECT") {
+        std::cerr << "Cannot send frame: Not connected to server!" << std::endl;
+        return;
+    }
+
+    std::stringstream frame;
+    frame << command << "\n";
+
+    // Append headers to the frame.
+    for (const auto& [key, value] : headers) {
+        frame << key << ":" << value << "\n";
+    }
+
+    frame << "\n" << body << "\n\0"; // Separate headers from body and add STOMP null terminator.
+
+    std::string frameStr = frame.str();
+    connectionHandler.sendLine(frameStr); // Send the frame to the server.
+}
+
+// Parses and processes an incoming STOMP frame from the server.
+void StompProtocol::parseFrame(const std::string& message) {
     std::istringstream stream(message);
-    std::string line;
-    std::getline(stream, line); // Read the STOMP command
+    std::string line, command;
+    std::map<std::string, std::string> headers;
+    std::string body;
 
-    if (line == "CONNECTED") {
-        connected = true; // Mark client as connected
-        std::cout << "Successfully connected to STOMP server." << std::endl;
-    } 
-    else if (line == "MESSAGE") {
-        std::string topic, body;
+    std::getline(stream, command); // Extracts the command (first line).
 
-        // Extract headers
-        while (std::getline(stream, line) && !line.empty()) {
-            if (line.find("destination:") == 0) {
-                topic = line.substr(11); // Extracts topic name, "destination:" is 11 chars long
+    // Extract headers until an empty line is encountered.
+    while (std::getline(stream, line) && !line.empty()) {
+        size_t delimiter = line.find(":");
+        if (delimiter != std::string::npos) {
+            headers[line.substr(0, delimiter)] = line.substr(delimiter + 1);
+        }
+    }
+
+    std::getline(stream, body, '\0'); // Extracts body content (if any).
+
+    // Determine which handler to call based on the command type.
+    if (command == "CONNECTED") {
+        handleConnected();
+    } else if (command == "MESSAGE") {
+        handleMessage(headers, body);
+    } else if (command == "ERROR") {
+        handleError(headers, body);
+    } else if (command == "RECEIPT") {
+        handleReceipt(headers);
+    }
+}
+
+// Handles CONNECTED frame, confirming successful login.
+void StompProtocol::handleConnected() {
+    connected = true;
+    std::cout << "Connected to server!" << std::endl;
+}
+
+// Handles MESSAGE frames, extracting and storing received event information.
+void StompProtocol::handleMessage(const std::map<std::string, std::string>& headers, const std::string& body) {
+    std::string destination = headers.at("destination"); // Extracts topic destination.
+    std::cout << "New message received in " << destination << ":\n" << body << std::endl;
+
+    Event newEvent(body); // Parses the body as an Event object.
+    eventSummary[destination].push_back(newEvent); // Stores the event.
+}
+
+// Handles ERROR frames by displaying error details.
+void StompProtocol::handleError(const std::map<std::string, std::string>& headers, const std::string& body) {
+    std::cerr << "ERROR received from server:\n";
+    for (const auto& [key, value] : headers) {
+        std::cerr << key << ": " << value << std::endl;
+    }
+    std::cerr << "Error message: " << body << std::endl;
+}
+
+// Handles RECEIPT frames by confirming successful message delivery.
+void StompProtocol::handleReceipt(const std::map<std::string, std::string>& headers) {
+    if (headers.find("receipt-id") != headers.end()) {
+        std::cout << "Receipt acknowledged for message ID: " << headers.at("receipt-id") << std::endl;
+    } else {
+        std::cout << "Received a RECEIPT frame, but no receipt-id was provided." << std::endl;
+    }
+}
+
+// Converts an epoch timestamp into a formatted date-time string.
+std::string StompProtocol::epochToDate(int epochTime) const {
+    std::time_t time = static_cast<std::time_t>(epochTime);
+    std::tm *tm = std::localtime(&time);
+    std::ostringstream oss;
+    oss << std::put_time(tm, "%d/%m/%y %H:%M");
+    return oss.str();
+}
+
+void StompProtocol::summarizeEmergencyChannel(const std::string& channel, const std::string& user, const std::string& filePath) {
+    std::vector<Event> relevantEvents;
+
+    // Check if the channel exists and filter events by user
+    if (eventSummary.find(channel) != eventSummary.end()) {
+        for (const Event& event : eventSummary[channel]) {
+            if (event.getEventOwnerUser() == user) {
+                relevantEvents.push_back(event);
             }
         }
-
-        // Read the message body
-        std::getline(stream, body);
-
-        // Store the message in the summary database
-        eventSummary[topic].push_back(body);
-
-        std::cout << "New message from " << topic << ": " << body << std::endl;
-    } 
-    else if (line == "RECEIPT") {
-        std::cout << "Server acknowledged request." << std::endl;
-    } 
-    else if (line == "ERROR") {
-        std::cerr << "Server error received: " << message << std::endl;
-        connectionHandler.close();
     }
-}
 
+    // Open file for writing (overwrite mode)
+    std::ofstream outFile(filePath);
+    if (!outFile) {
+        std::cerr << "Error: Could not open file " << filePath << " for writing." << std::endl;
+        return;
+    }
 
-/**
- * Constructs a CONNECT frame for user authentication.
- */
-std::string StompProtocol::createConnectFrame(const std::string& username, const std::string& password) {
-    std::ostringstream frame;
-    frame << "CONNECT\n";
-    frame << "accept-version:1.2\n";
-    frame << "host:stomp.server\n";
-    frame << "login:" << username << "\n";
-    frame << "passcode:" << password << "\n\n";
-    frame << '\0'; // STOMP message must end with a null terminator
-    return frame.str();
-}
+    // Print header
+    outFile << "Channel " << channel << "\n";
+    outFile << "Stats:\n";
+    outFile << "Total: " << relevantEvents.size() << "\n";
 
-/**
- * Constructs a SUBSCRIBE frame to join a topic.
- */
-std::string StompProtocol::createSubscribeFrame(const std::string& topic, int subscriptionId) {
-    std::ostringstream frame;
-    frame << "SUBSCRIBE\n";
-    frame << "destination:" << topic << "\n";
-    frame << "id:" << subscriptionId << "\n\n";
-    frame << '\0';
-    return frame.str();
-}
+    // Print event reports header
+    outFile << "\nEvent Reports:\n";
 
-/**
- * Constructs a SEND frame to publish a message to a topic.
- */
-std::string StompProtocol::createSendFrame(const std::string& destination, const std::string& body) {
-    std::ostringstream frame;
-    frame << "SEND\n";
-    frame << "destination:" << destination << "\n\n";
-    frame << body << "\n";
-    frame << '\0';
-    return frame.str();
-}
+    if (!relevantEvents.empty()) {
+        // Sort events by date_time, then by name lexicographically
+        std::sort(relevantEvents.begin(), relevantEvents.end(), [](const Event& a, const Event& b) {
+            // Sort lexicographically if time is the same
+            if (a.get_date_time() == b.get_date_time()) {
+                return a.get_name() < b.get_name();
+            }
+            // Sort by time if time is different
+            return a.get_date_time() < b.get_date_time();
+        });
 
-/**
- * Constructs a DISCONNECT frame to close the connection.
- */
-std::string StompProtocol::createDisconnectFrame(int receiptId) {
-    std::ostringstream frame;
-    frame << "DISCONNECT\n";
-    frame << "receipt:" << receiptId << "\n\n";
-    frame << '\0';
-    return frame.str();
-}
+        // Set description to be 27 chars max
+        for (size_t i = 0; i < relevantEvents.size(); i++) {
+            const Event& event = relevantEvents[i];
+            std::string shortDescription = event.get_description().substr(0, 27);
+            if (event.get_description().length() > 30) {
+                shortDescription += "...";
+            }
 
-/**
- * Adds a topic to the client's subscription list.
- */
-void StompProtocol::addSubscription(const std::string& topic, int subscriptionId) {
-    subscriptions[topic] = subscriptionId;
-}
-
-/**
- * Removes a topic from the client's subscription list.
- */
-void StompProtocol::removeSubscription(const std::string& topic) {
-    subscriptions.erase(topic);
-}
-
-/**
- * Prints a summary of received messages grouped by topic.
- */
-void StompProtocol::printSummary() {
-    for (const auto& entry : eventSummary) {
-        std::cout << "Topic: " << entry.first << std::endl;
-        for (const std::string& message : entry.second) {
-            std::cout << "  - " << message << std::endl;
+            outFile << "Report_" << (i + 1) << ":\n";
+            outFile << "city: " << event.get_city() << "\n";
+            outFile << "date time: " << epochToDate(event.get_date_time()) << "\n";
+            outFile << "event name: " << event.get_name() << "\n";
+            outFile << "summary: " << shortDescription << "\n";
         }
     }
+
+    std::cout << "Summary successfully written to " << filePath << std::endl;
 }
