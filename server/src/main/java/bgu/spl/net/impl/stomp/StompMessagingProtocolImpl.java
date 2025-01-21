@@ -205,7 +205,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
         String topic = clientSubscriptions.remove(subscriptionId);
 
         if (topic == null) {
-            sendError("Subscription ID " + subscriptionId + " not found.", message.getHeader("receipt"), message);
+            sendError("Attempted unsubscribing from a channel not subscribed to.", message.getHeader("receipt"), message);
             return;
         }
 

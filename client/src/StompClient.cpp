@@ -96,12 +96,12 @@ int main(int argc, char *argv[]) {
             }
 
             // Check if the correct number of arguments is provided
-            if (tokens.size() < 2) {
+            if (tokens.size() != 2) {
                 std::cerr << "join command needs 1 args: {channel_name}" << std::endl;
                 continue;
             }
 
-                // Generate unique IDs for subscription and receipt
+            // Generate unique IDs for subscription and receipt
             int subscriptionId = protocol->getNextId();
             int receiptId = protocol->getNextReceiptId();
 
@@ -113,48 +113,94 @@ int main(int argc, char *argv[]) {
             };
 
             // Store the receipt mapping
-            protocol->storeReceipt(receiptId, "Joined channel: " + tokens[1]);
+            protocol->storeReceipt(receiptId, "Joined channel " + tokens[1]);
 
             // Send the SUBSCRIBE frame to the server
             protocol->send("SUBSCRIBE", headers, "");
         }
 
         else if (command == "exit") {
-            if (!loggedIn || tokens.size() < 2) {
+            // Check if the user is logged in
+            if (!protocol || !protocol->isConnected()) {
+                std::cerr << "Please login first" << std::endl;
+                continue;
+            }
+
+            // Check argument count
+            if (tokens.size() != 2) {
                 std::cerr << "Usage: exit {channel_name}" << std::endl;
                 continue;
             }
+
+            std::string channel = tokens[1];
+
+            // Generate unique receipt ID
+            int receiptId = protocol->getNextReceiptId();
+
+            // Find the subscription ID for this channel (assuming we stored them)
+            int subscriptionId = protocol->getSubscriptionId(channel);  // New function to retrieve it
+
+            // Means not subscribed to this channel, can't unsubscribe.
+            if (subscriptionId == -1) {
+                std::cerr << "you are not subscribed to channel " << channel << std::endl;
+                continue;
+            }
+
+            // Prepare UNSUBSCRIBE frame
             std::map<std::string, std::string> headers = {
-                {"id", tokens[1]},
-                {"receipt-id", "unsub-" + tokens[1]}
+                {"id", std::to_string(subscriptionId)},   // Unique subscription ID
+                {"receipt", std::to_string(receiptId)}   // Unique receipt ID for confirmation
             };
-            std::lock_guard<std::mutex> lock(mutex);
+
+            // Store the receipt mapping to track the request
+            protocol->storeReceipt(receiptId, "Exited channel " + channel);
+
+            // Send the UNSUBSCRIBE frame
             protocol->send("UNSUBSCRIBE", headers, "");
         }
 
         else if (command == "report") {
-            if (!loggedIn || tokens.size() < 2) {
-                std::cerr << "Usage: report {file}" << std::endl;
+            // Check if the user is logged in
+            if (!protocol || !protocol->isConnected()) {
+                std::cerr << "Please login first" << std::endl;
                 continue;
             }
 
+            // Check if the correct number of arguments is provided
+            if (tokens.size() != 2) {
+                std::cerr << "report command needs 1 args: {file}" << std::endl;
+                continue;
+            }
+
+            // Parse the events from the provided file
             names_and_events parsedEvents = parseEventsFile(tokens[1]);
+
             for (const Event &event : parsedEvents.events) {
-                std::map<std::string, std::string> headers = {{"destination", "/" + parsedEvents.channel_name}};
+                // Prepare the headers for the SEND frame
+                std::map<std::string, std::string> headers = {
+                    {"destination", "/" + parsedEvents.channel_name} // Send to the correct channel
+                };
+
+                // Construct the body in the correct format
                 std::string body = "user:" + event.getEventOwnerUser() + "\n" +
-                                   "city:" + event.get_city() + "\n" +
-                                   "event name:" + event.get_name() + "\n" +
-                                   "date time:" + std::to_string(event.get_date_time()) + "\n" +
-                                   "general information:\n";
+                                "city:" + event.get_city() + "\n" +
+                                "event name:" + event.get_name() + "\n" +
+                                "date time:" + std::to_string(event.get_date_time()) + "\n" +
+                                "general information:\n";
+
                 for (const auto &[key, value] : event.get_general_information()) {
-                    body += key + ":" + value + "\n";
+                    body += key + ":" + value + "\n";  // Ensure proper formatting
                 }
-                body += "description:\n" + event.get_description();
-                std::lock_guard<std::mutex> lock(mutex);
+
+                body += "description:\n" + event.get_description() + "\n";
+
+                // Send the formatted SEND frame to the server
                 protocol->send("SEND", headers, body);
+
+                // Print when finished
+                std::cout << "reported" << std::endl;
             }
         }
-
         else if (command == "summary") {
             if (!loggedIn || tokens.size() < 4) {
                 std::cerr << "Usage: summary {channel_name} {user} {file}" << std::endl;

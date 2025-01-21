@@ -28,6 +28,9 @@ public:
 
     void storeReceipt(int receiptId, const std::string& requestType); // Stores the mapping between receipt ID and request type
 
+    void storeSubscriptionId(const std::string& channel, int subscriptionId); // Stores subscription ID used for subscribing to a channel
+    int getSubscriptionId(const std::string& channel); // Retrieves the subscription ID used for subscribing to a channel
+
 private:
     ConnectionHandler &connectionHandler;                   // Handles communication with the server.
     bool connected;                                         // Indicates if the client is connected.
@@ -36,6 +39,9 @@ private:
 
     // Used to match RECEIPT frames to their corresponding requests, and know which request by the client the receipt is for.
     std::unordered_map<int, std::string> receiptMap; // Maps receipt ID → request type
+
+    // Used to track the subscription ID the client useed for each channel, to know which ID to use for UNSUBSCRIBE.
+    std::unordered_map<std::string, int> subscriptionIds;  // Maps channel → subscription ID
 
     int idCounter = 0;       // Tracks unique subscription IDs per client
     int receiptCounter = 0;  // Tracks unique receipt IDs per client

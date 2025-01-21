@@ -17,6 +17,17 @@ int StompProtocol::getNextReceiptId() {
     return receiptCounter++;  // Generate a unique receipt ID for this client
 }
 
+int StompProtocol::getSubscriptionId(const std::string& channel) {
+    if (subscriptionIds.find(channel) != subscriptionIds.end()) {
+        return subscriptionIds[channel];
+    }
+    return -1;  // Return -1 if not found
+}
+
+void StompProtocol::storeSubscriptionId(const std::string& channel, int subscriptionId) {
+    subscriptionIds[channel] = subscriptionId;
+}
+
 // Stores the request type associated with a receipt ID.
 void StompProtocol::storeReceipt(int receiptId, const std::string& requestType) {
     receiptMap[receiptId] = requestType;
