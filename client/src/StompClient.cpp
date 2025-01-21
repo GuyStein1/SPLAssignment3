@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
                 continue;
             }
             // Make sure the command has the correct number of arguments
-            if (tokens.size() != 3) {
+            if (tokens.size() != 4) {
                 std::cerr << "login command needs 3 args: {host:port} {username} {password}" << std::endl;
                 continue;
             }
