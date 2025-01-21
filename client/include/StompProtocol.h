@@ -23,7 +23,7 @@ public:
 
     std::string epochToDate(int epochTime) const; // Converts epoch time to a formatted date string.
 
-    bool isConnected() const; // Checks if the client is connected.
+    bool isConnected(); // Checks if the client is connected.
 
     void setConnected(bool connected); // Sets the connection status.
 
@@ -61,6 +61,9 @@ private:
 
     // Mutex for thread safety.
     std::mutex sendQueueMutex;
+
+    // Mutex for connection status
+    std::mutex connectionMutex; 
 
     int idCounter = 0;       // Tracks unique subscription IDs per client
     int receiptCounter = 0;  // Tracks unique receipt IDs per client

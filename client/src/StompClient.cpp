@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
             protocol->send("CONNECT", headers, "");
 
             // Start communication thread.
-            communicator = std::thread(Communicate, std::ref(*protocol), std::ref(*connectionHandler));
+            communicator = std::thread(communicate, std::ref(*protocol), std::ref(*connectionHandler));
         }
 
         else if (command == "join") {

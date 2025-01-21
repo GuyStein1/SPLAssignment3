@@ -40,11 +40,14 @@ void StompProtocol::connect() {
 }
 
 // Checks if the client is connected to the server.
-bool StompProtocol::isConnected() const {
+bool StompProtocol::isConnected() {
+    std::lock_guard<std::mutex> lock(connectionMutex);
     return connected;
 }
 
+// Sets the connection status.
 void StompProtocol::setConnected(bool connected) {
+    std::lock_guard<std::mutex> lock(connectionMutex);
     this->connected = connected;
 }
 
@@ -125,7 +128,7 @@ void StompProtocol::parseFrame(const std::string& message) {
 
 // Handles CONNECTED frame, confirming successful login.
 void StompProtocol::handleConnected() {
-    connected = true;
+    setConnected(true);
     std::cout << "Login successful" << std::endl;
 }
 
