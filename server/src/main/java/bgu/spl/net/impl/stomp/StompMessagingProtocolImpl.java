@@ -307,7 +307,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
      */
     private void sendReceiptIfRequested(String receiptId) {
         if (receiptId != null) {
-            // Construct receipt headers
+            // Construct receipt header
             Map<String, String> receiptHeaders = new HashMap<>();
             receiptHeaders.put("receipt-id", receiptId);
 

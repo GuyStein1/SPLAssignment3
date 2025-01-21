@@ -9,10 +9,28 @@
 // Constructor initializes STOMP protocol with connection handler.
 StompProtocol::StompProtocol(ConnectionHandler &handler) : connectionHandler(handler), connected(false) {}
 
+int StompProtocol::getNextId() {
+    return idCounter++;  // Generate a unique ID for subscriptions
+}
+
+int StompProtocol::getNextReceiptId() {
+    return receiptCounter++;  // Generate a unique receipt ID for this client
+}
+
+// Stores the request type associated with a receipt ID.
+void StompProtocol::storeReceipt(int receiptId, const std::string& requestType) {
+    receiptMap[receiptId] = requestType;
+}
+
 // Sends a CONNECT frame to initiate connection.
 void StompProtocol::connect() {
     std::map<std::string, std::string> headers = {{"accept-version", "1.2"}, {"host", "stomp.server"}};
     send("CONNECT", headers, "");
+}
+
+// Checks if the client is connected to the server.
+bool StompProtocol::isConnected() const {
+    return connected;
 }
 
 // Sends a STOMP frame with given command, headers, and body.
@@ -70,7 +88,7 @@ void StompProtocol::parseFrame(const std::string& message) {
 // Handles CONNECTED frame, confirming successful login.
 void StompProtocol::handleConnected() {
     connected = true;
-    std::cout << "Connected to server!" << std::endl;
+    std::cout << "Login successful" << std::endl;
 }
 
 // Handles MESSAGE frames, extracting and storing received event information.
@@ -94,12 +112,23 @@ void StompProtocol::handleError(const std::map<std::string, std::string>& header
 // Handles RECEIPT frames by confirming successful message delivery.
 void StompProtocol::handleReceipt(const std::map<std::string, std::string>& headers) {
     if (headers.find("receipt-id") != headers.end()) {
-        std::cout << "Receipt acknowledged for message ID: " << headers.at("receipt-id") << std::endl;
+        int receiptId = std::stoi(headers.at("receipt-id"));
+
+        // Check if we stored this receipt ID
+        if (receiptMap.find(receiptId) != receiptMap.end()) {
+            std::string requestType = receiptMap[receiptId];
+            // Print the receipt acknowledgment, knowing the server handled the request.
+            std::cout << requestType  << std::endl;
+
+            // Remove from map since it's processed
+            receiptMap.erase(receiptId);
+        } else {
+            std::cout << "Received an unknown RECEIPT ID: " << receiptId << std::endl;
+        }
     } else {
-        std::cout << "Received a RECEIPT frame, but no receipt-id was provided." << std::endl;
+        std::cout << "Received a RECEIPT frame, but no receipt ID was provided." << std::endl;
     }
 }
-
 // Converts an epoch timestamp into a formatted date-time string.
 std::string StompProtocol::epochToDate(int epochTime) const {
     std::time_t time = static_cast<std::time_t>(epochTime);

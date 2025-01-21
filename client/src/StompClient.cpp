@@ -19,7 +19,6 @@ void listenToServer(StompProtocol &protocol, ConnectionHandler &connectionHandle
 int main(int argc, char *argv[]) {
     ConnectionHandler* connectionHandler = nullptr; // Pointer to manage connection
     StompProtocol* protocol = nullptr; // Pointer to manage STOMP protocol
-    bool loggedIn = false;
     std::thread serverListener; // Thread for handling server messages
 
     std::string userInput;
@@ -34,12 +33,14 @@ int main(int argc, char *argv[]) {
         std::string command = tokens[0];
 
         if (command == "login") {
-            if (loggedIn) {
-                std::cerr << "The client is already logged in, log out before trying again" << std::endl;
+            // Make sure user is not already logged in
+            if (protocol && protocol->isConnected()) {
+                std::cerr << "user already logged in" << std::endl;
                 continue;
             }
+            // Make sure the command has the correct number of arguments
             if (tokens.size() != 3) {
-                std::cerr << "Usage: login {host:port} {username} {password}" << std::endl;
+                std::cerr << "login command needs 3 args: {host:port} {username} {password}" << std::endl;
                 continue;
             }
 
@@ -52,7 +53,10 @@ int main(int argc, char *argv[]) {
                 continue;
             }
             std::string serverHost = hostPort.substr(0, colonPosition);
+			// Convert port string to int
             int serverPort = std::stoi(hostPort.substr(colonPosition + 1));
+
+			// Extract username and password
             std::string username = tokens[2];
             std::string password = tokens[3];
 
@@ -60,8 +64,10 @@ int main(int argc, char *argv[]) {
             connectionHandler = new ConnectionHandler(serverHost, serverPort);
             protocol = new StompProtocol(*connectionHandler);
 
+            // Connect to server
             if (!connectionHandler->connect()) {
-                std::cerr << "Could not connect to server" << std::endl;
+                std::cerr << "Could not connect to server: Make sure server is running, ip and host are correct, and that you have internet connection." << std::endl;
+                // Cleanup
                 delete connectionHandler;
                 delete protocol;
                 connectionHandler = nullptr;
@@ -77,23 +83,39 @@ int main(int argc, char *argv[]) {
                 {"passcode", password}
             };
             protocol->send("CONNECT", headers, "");
-            loggedIn = true;
 
             // Start listener thread for server responses
             serverListener = std::thread(listenToServer, std::ref(*protocol), std::ref(*connectionHandler));
         }
 
         else if (command == "join") {
-            if (!loggedIn || tokens.size() < 2) {
-                std::cerr << "Usage: join {channel_name}" << std::endl;
+            // Check if the user is logged in (connected to the STOMP server)
+            if (!protocol || !protocol->isConnected()) {
+                std::cerr << "Please login first" << std::endl;
                 continue;
             }
+
+            // Check if the correct number of arguments is provided
+            if (tokens.size() < 2) {
+                std::cerr << "join command needs 1 args: {channel_name}" << std::endl;
+                continue;
+            }
+
+                // Generate unique IDs for subscription and receipt
+            int subscriptionId = protocol->getNextId();
+            int receiptId = protocol->getNextReceiptId();
+
+            // Create the SUBSCRIBE frame headers
             std::map<std::string, std::string> headers = {
                 {"destination", "/" + tokens[1]},
-                {"id", tokens[1]},
-                {"receipt-id", "sub-" + tokens[1]}
+                {"id", std::to_string(subscriptionId)},
+                {"receipt", std::to_string(receiptId)}
             };
-            std::lock_guard<std::mutex> lock(mutex);
+
+            // Store the receipt mapping
+            protocol->storeReceipt(receiptId, "Joined channel: " + tokens[1]);
+
+            // Send the SUBSCRIBE frame to the server
             protocol->send("SUBSCRIBE", headers, "");
         }
 
