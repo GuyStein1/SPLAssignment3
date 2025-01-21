@@ -5,23 +5,32 @@
 #include "ConnectionHandler.h"
 #include "keyboardInput.h"
 
-#include <filesystem>  // Required for path handling
-
 std::mutex mutex; // Ensures thread safety when modifying shared objects
 
-// Listens for incoming STOMP messages from the server, used for the thread in charge of communication
-void listenToServer(StompProtocol &protocol, ConnectionHandler &connectionHandler) {
+// Handles communication with the server: listens for incoming messages and sends queued frames.
+void communicate(StompProtocol &protocol, ConnectionHandler &connectionHandler) {
     std::string response;
-    while (connectionHandler.getLine(response)) { // Continuously reads messages from server
-        std::lock_guard<std::mutex> lock(mutex); // Ensures thread safety
-        protocol.parseFrame(response); // Processes the received STOMP frame
+
+    while (!protocol.shouldStopCommunication()) {
+        std::string frameToSend;
+
+        // Check if there are frames to send
+        while (protocol.dequeueMessage(frameToSend)) {
+            connectionHandler.sendLine(frameToSend); // Send frame to the server
+        }
+
+        // Listen for incoming messages
+        if (connectionHandler.getLine(response)) {
+            std::lock_guard<std::mutex> lock(mutex);
+            protocol.parseFrame(response);
+        }
     }
 }
 
 int main(int argc, char *argv[]) {
     ConnectionHandler* connectionHandler = nullptr; // Pointer to manage connection
     StompProtocol* protocol = nullptr; // Pointer to manage STOMP protocol
-    std::thread serverListener; // Thread for handling server messages
+    std::thread communicator; // Communication thread
 
     std::string userInput;
     while (true) {
@@ -56,7 +65,7 @@ int main(int argc, char *argv[]) {
             }
             std::string serverHost = hostPort.substr(0, colonPosition);
 			// Convert port string to int
-            int serverPort = std::stoi(hostPort.substr(colonPosition + 1));
+            short serverPort = std::stoi(hostPort.substr(colonPosition + 1));
 
 			// Extract username and password
             std::string username = tokens[2];
@@ -86,8 +95,8 @@ int main(int argc, char *argv[]) {
             };
             protocol->send("CONNECT", headers, "");
 
-            // Start listener thread for server responses
-            serverListener = std::thread(listenToServer, std::ref(*protocol), std::ref(*connectionHandler));
+            // Start communication thread.
+            communicator = std::thread(Communicate, std::ref(*protocol), std::ref(*connectionHandler));
         }
 
         else if (command == "join") {
@@ -217,30 +226,48 @@ int main(int argc, char *argv[]) {
                 continue;
             }
 
-            // Determine the full path to the bin folder in client/
-            std::string binPath = (std::filesystem::current_path().parent_path() / "bin" / tokens[3]).string();
+            // Path to bin folder
+            std::string binPath = "../bin/" + tokens[3];;
 
             // Call the summarize function with the correct file path
             protocol->summarizeEmergencyChannel(tokens[1], tokens[2], binPath);
         }
 
         else if (command == "logout") {
-            if (!loggedIn) {
+            // Check if the user is logged in
+            if (!protocol || !protocol->isConnected()) {
                 std::cerr << "Not logged in" << std::endl;
                 continue;
             }
-            std::map<std::string, std::string> headers = {{"receipt-id", "disconnect"}};
-            {
-                std::lock_guard<std::mutex> lock(mutex);
-                protocol->send("DISCONNECT", headers, "");
-            }
-            loggedIn = false;
-            serverListener.join(); // Ensure the listener thread finishes before exiting
+
+            // Generate a unique receipt ID
+            int receiptId = protocol->getNextReceiptId();
+
+            // Prepare the DISCONNECT frame with the receipt ID
+            std::map<std::string, std::string> headers = {
+                {"receipt", std::to_string(receiptId)}
+            };
+
+            // Store the receipt ID with a "Logout" request type
+            protocol->storeReceipt(receiptId, "Logout");
+
+            // Send the DISCONNECT frame to the server
+            protocol->send("DISCONNECT", headers, "");
+
+            // Wait for the listener thread to terminate, 
+            // which is done when the server sends a RECEIPT frame for the discconect request (in the protocol)
+            communicator.join();
+
+            // Close the socket gracefully
+            connectionHandler->close();
+
+            // Clean up resources
             delete connectionHandler;
-            delete protocol;
             connectionHandler = nullptr;
+
+            delete protocol;
             protocol = nullptr;
-            break; // Exit the loop and terminate the program
+
         }
 
         else {
