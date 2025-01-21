@@ -5,6 +5,8 @@
 #include "ConnectionHandler.h"
 #include "keyboardInput.h"
 
+#include <filesystem>  // Required for path handling
+
 std::mutex mutex; // Ensures thread safety when modifying shared objects
 
 // Listens for incoming STOMP messages from the server, used for the thread in charge of communication
@@ -201,13 +203,25 @@ int main(int argc, char *argv[]) {
                 std::cout << "reported" << std::endl;
             }
         }
+
         else if (command == "summary") {
-            if (!loggedIn || tokens.size() < 4) {
-                std::cerr << "Usage: summary {channel_name} {user} {file}" << std::endl;
+            // Check if the user is logged in
+            if (!protocol || !protocol->isConnected()) {
+                std::cerr << "Please login first" << std::endl;
                 continue;
             }
-            std::lock_guard<std::mutex> lock(mutex);
-            protocol->summarizeEmergencyChannel(tokens[1], tokens[2], tokens[3]);
+
+            // Check argument count
+            if (tokens.size() != 4) {
+                std::cerr << "summary command needs 3 args: {channel_name} {user} {file}" << std::endl;
+                continue;
+            }
+
+            // Determine the full path to the bin folder in client/
+            std::string binPath = (std::filesystem::current_path().parent_path() / "bin" / tokens[3]).string();
+
+            // Call the summarize function with the correct file path
+            protocol->summarizeEmergencyChannel(tokens[1], tokens[2], binPath);
         }
 
         else if (command == "logout") {
