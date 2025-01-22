@@ -140,7 +140,7 @@ void StompProtocol::handleMessage(const std::map<std::string, std::string>& head
 
 // Handles ERROR frames by displaying error details.
 void StompProtocol::handleError(const std::map<std::string, std::string>& headers, const std::string& body) {
-    std::cerr << "ERROR received from server:\n";
+    std::cerr << "\nERROR received from server:\n";
     for (const auto& [key, value] : headers) {
         std::cerr << key << ": " << value << std::endl;
     }
