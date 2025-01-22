@@ -7,7 +7,8 @@
 #include <algorithm>
 
 // Constructor initializes STOMP protocol with connection handler.
-StompProtocol::StompProtocol(ConnectionHandler &handler) : connectionHandler(handler), connected(false), stopCommunication(false) {}
+StompProtocol::StompProtocol(ConnectionHandler &handler) : 
+connectionHandler(handler), connected(false), stopCommunication(false), errorOccured(false) {}
 
 int StompProtocol::getNextId() {
     return idCounter++;  // Generate a unique ID for subscriptions
@@ -50,6 +51,12 @@ void StompProtocol::setConnected(bool connected) {
     std::lock_guard<std::mutex> lock(connectionMutex);
     this->connected = connected;
 }
+
+// Check if an error occurred
+bool StompProtocol::hasErrorOccurred() { 
+    std::lock_guard<std::mutex> lock(errorMutex);
+    return errorOccured; 
+} 
 
 void StompProtocol::signalStopCommunication() { stopCommunication = true; } // Signal communication thread to stop
 
@@ -131,6 +138,14 @@ void StompProtocol::handleError(const std::map<std::string, std::string>& header
         std::cerr << key << ": " << value << std::endl;
     }
     std::cerr << "Error message: " << body << std::endl;
+
+    // Signal communication thread to stop
+    signalStopCommunication();
+
+    // Mutex scope starts here
+    std::lock_guard<std::mutex> lock(errorMutex);
+    errorOccured = true;
+    // Mutex scope ends here
 }
 
 // Handles RECEIPT frames by confirming successful message delivery.
@@ -142,7 +157,7 @@ void StompProtocol::handleReceipt(const std::map<std::string, std::string>& head
         if (receiptMap.find(receiptId) != receiptMap.end()) {
             std::string requestType = receiptMap[receiptId];
               if (requestType == "Logout") {
-                
+
                 std::cout << "Logged out" << std::endl;
 
                 // Signal communication thread to stop

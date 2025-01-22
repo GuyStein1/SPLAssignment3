@@ -7,13 +7,25 @@
 
 std::mutex mutex; // Ensures thread safety when modifying shared objects
 
+
 // Listens for incoming STOMP messages from the server, used for the thread in charge of communication
-void communicate(StompProtocol &protocol, ConnectionHandler &connectionHandler) {
+void communicate(StompProtocol *protocol, ConnectionHandler *connectionHandler) {
     std::string response;
-    while (!protocol.shouldStopCommunication() && connectionHandler.getLine(response)) { // Continuously reads messages from server
+    while (!protocol->shouldStopCommunication() && connectionHandler->getLine(response)) { // Continuously reads messages from server
         std::lock_guard<std::mutex> lock(mutex); // Ensures thread safety
-        protocol.parseFrame(response); // Processes the received STOMP frame
+        protocol->parseFrame(response); // Processes the received STOMP frame
     }
+
+    // Close the socket gracefully
+    connectionHandler->close();
+
+    // Clean up resources
+    delete connectionHandler;
+    connectionHandler = nullptr;
+
+    delete protocol;
+    protocol = nullptr;
+
 }
 
 int main(int argc, char *argv[]) {
@@ -86,7 +98,7 @@ int main(int argc, char *argv[]) {
             protocol->send("CONNECT", headers, "");
 
             // Start communication thread.
-            communicator = std::thread(communicate, std::ref(*protocol), std::ref(*connectionHandler));
+            communicator = std::thread(communicate, protocol, connectionHandler);
         }
 
         else if (command == "join") {
@@ -247,21 +259,14 @@ int main(int argc, char *argv[]) {
             // Wait for the listener thread to terminate, 
             // which is done when the server sends a RECEIPT frame for the discconect request (in the protocol)
             communicator.join();
-
-            // Close the socket gracefully
-            connectionHandler->close();
-
-            // Clean up resources
-            delete connectionHandler;
-            connectionHandler = nullptr;
-
-            delete protocol;
-            protocol = nullptr;
-
         }
 
         else {
             std::cerr << "Unknown command: " << command << std::endl;
+        }
+
+        if(protocol && protocol->hasErrorOccurred()) {
+            break;
         }
     }
 
