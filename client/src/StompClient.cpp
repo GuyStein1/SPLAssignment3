@@ -232,7 +232,7 @@ int main(int argc, char *argv[]) {
                                 "general information:\n";
 
                 for (const auto &[key, value] : event.get_general_information()) {
-                    body += key + ":" + value + "\n";  // Ensure proper formatting
+                    body += " " + key + ":" + value + "\n";  // Ensure proper formatting
                 }
 
                 body += "description:\n" + event.get_description() + "\n";
