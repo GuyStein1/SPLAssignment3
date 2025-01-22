@@ -9,19 +9,39 @@ std::mutex mutex; // Ensures thread safety when modifying shared objects
 
 
 // Listens for incoming STOMP messages from the server, used for the thread in charge of communication
-void communicate(StompProtocol& protocol, ConnectionHandler& connectionHandler) {
+void communicate(StompProtocol*& protocol, ConnectionHandler*& connectionHandler) {
     std::string response;
-    while (!protocol.shouldStopCommunication()) {
+    while (!protocol->shouldStopCommunication()) {
 
         response.clear();  // Ensure response is empty before reading a new frame
 
-        if (!connectionHandler.getFrameAscii(response, '\0')) {
+        if (!connectionHandler->getFrameAscii(response, '\0')) {
             std::cerr << "Server connection lost." << std::endl;
-            protocol.signalStopCommunication();
+            protocol->signalStopCommunication();
             break;
         }
 
-        protocol.parseFrame(response);
+        protocol->parseFrame(response);
+    }
+
+    // Exiting loop means logged out or error occured.
+
+    // Store if error occured before deleteing protocol.
+    bool error = protocol->hasErrorOccurred();
+
+    // Close the socket
+    connectionHandler->close();
+
+    // Clean up resources
+    delete connectionHandler;
+    connectionHandler = nullptr;  // Prevent dangling pointer
+
+    delete protocol;
+    protocol = nullptr;  // Prevent dangling pointer
+
+    // Terminate program if error occured
+    if (error){
+        std::terminate(); // Exit the program
     }
 }
 
@@ -33,29 +53,14 @@ int main(int argc, char *argv[]) {
 
     std::string userInput;
     while (true) {
+
         userInput = KeyboardInput::readLine();
+
         std::vector<std::string> tokens;
         KeyboardInput::split_str(userInput, ' ', tokens); // Use split_str to parse user input
 
 		// Extract first word in the input to know the type of command
         std::string command = tokens[0];
-
-        if (protocol && protocol->hasErrorOccurred()) {
-            // Wait for the communication thread to terminate, 
-            // which is done when the server sends a RECEIPT frame for the discconect request (in the protocol)
-            communicator.join();
-
-            // Close the socket
-            connectionHandler->close();
-
-            // Clean up resources
-            delete connectionHandler;
-            connectionHandler = nullptr;
-
-            delete protocol;
-            protocol = nullptr;
-            break;
-        }
 
         if (tokens.empty()) continue;
 
@@ -113,8 +118,8 @@ int main(int argc, char *argv[]) {
             };
             protocol->send("CONNECT", headers, "");
 
-            // Start communication thread with references
-            communicator = std::thread(communicate, std::ref(*protocol), std::ref(*connectionHandler));
+            // Start communication thread with pointer references
+            communicator = std::thread(communicate, std::ref(protocol), std::ref(connectionHandler));
         }
 
         else if (command == "join") {
@@ -280,19 +285,9 @@ int main(int argc, char *argv[]) {
             // Send the DISCONNECT frame to the server
             protocol->send("DISCONNECT", headers, "");
 
-            // Wait for the communication thread to terminate, 
+            // Wait for the communication thread to close and clean up resources, 
             // which is done when the server sends a RECEIPT frame for the discconect request (in the protocol)
             communicator.join();
-
-            // Close the socket gracefully
-            connectionHandler->close();
-
-            // Clean up resources
-            delete connectionHandler;
-            connectionHandler = nullptr;
-
-            delete protocol;
-            protocol = nullptr;
         }
 
         else {
