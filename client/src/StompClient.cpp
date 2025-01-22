@@ -54,14 +54,16 @@ int main(int argc, char *argv[]) {
         std::string command = tokens[0];
 
         if (command == "login") {
-            // Make sure user is not already logged in
-            if (protocol && protocol->isConnected()) {
-                std::cerr << "user already logged in" << std::endl;
-                continue;
-            }
+
             // Make sure the command has the correct number of arguments
             if (tokens.size() != 4) {
                 std::cerr << "login command needs 3 args: {host:port} {username} {password}" << std::endl;
+                continue;
+            }
+
+            // Make sure user is not already logged in
+            if (protocol && protocol->isConnected()) {
+                std::cerr << "user already logged in" << std::endl;
                 continue;
             }
 
@@ -110,15 +112,15 @@ int main(int argc, char *argv[]) {
         }
 
         else if (command == "join") {
-            // Check if the user is logged in (connected to the STOMP server)
-            if (!protocol || !protocol->isConnected()) {
-                std::cerr << "Please login first" << std::endl;
-                continue;
-            }
 
             // Check if the correct number of arguments is provided
             if (tokens.size() != 2) {
                 std::cerr << "join command needs 1 args: {channel_name}" << std::endl;
+                continue;
+            }
+            // Check if the user is logged in (connected to the STOMP server)
+            if (!protocol || !protocol->isConnected()) {
+                std::cerr << "Please login first" << std::endl;
                 continue;
             }
 
@@ -141,17 +143,20 @@ int main(int argc, char *argv[]) {
         }
 
         else if (command == "exit") {
-            // Check if the user is logged in
-            if (!protocol || !protocol->isConnected()) {
-                std::cerr << "Please login first" << std::endl;
-                continue;
-            }
 
             // Check argument count
             if (tokens.size() != 2) {
                 std::cerr << "exit commmand needs 1 args: {channel_name}" << std::endl;
                 continue;
             }
+
+            // Check if the user is logged in
+            if (!protocol || !protocol->isConnected()) {
+                std::cerr << "Please login first" << std::endl;
+                continue;
+            }
+
+ 
 
             std::string channel = tokens[1];
 
@@ -181,15 +186,16 @@ int main(int argc, char *argv[]) {
         }
 
         else if (command == "report") {
-            // Check if the user is logged in
-            if (!protocol || !protocol->isConnected()) {
-                std::cerr << "Please login first" << std::endl;
-                continue;
-            }
 
             // Check if the correct number of arguments is provided
             if (tokens.size() != 2) {
                 std::cerr << "report command needs 1 args: {file}" << std::endl;
+                continue;
+            }
+
+            // Check if the user is logged in
+            if (!protocol || !protocol->isConnected()) {
+                std::cerr << "Please login first" << std::endl;
                 continue;
             }
 
@@ -217,22 +223,23 @@ int main(int argc, char *argv[]) {
 
                 // Send the formatted SEND frame to the server
                 protocol->send("SEND", headers, body);
-
-                // Print when finished
-                std::cout << "reported" << std::endl;
             }
+
+            // Print when finished
+            std::cout << "reported" << std::endl;
         }
 
         else if (command == "summary") {
-            // Check if the user is logged in
-            if (!protocol || !protocol->isConnected()) {
-                std::cerr << "Please login first" << std::endl;
-                continue;
-            }
 
             // Check argument count
             if (tokens.size() != 4) {
                 std::cerr << "summary command needs 3 args: {channel_name} {user} {file}" << std::endl;
+                continue;
+            }
+
+            // Check if the user is logged in
+            if (!protocol || !protocol->isConnected()) {
+                std::cerr << "Please login first" << std::endl;
                 continue;
             }
 
