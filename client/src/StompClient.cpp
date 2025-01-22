@@ -23,17 +23,6 @@ void communicate(StompProtocol *protocol, ConnectionHandler *connectionHandler) 
 
         protocol->parseFrame(response);
     }
-
-    // Close the socket gracefully
-    connectionHandler->close();
-
-    // Clean up resources
-    delete connectionHandler;
-    connectionHandler = nullptr;
-
-    delete protocol;
-    protocol = nullptr;
-
 }
 
 int main(int argc, char *argv[]) {
@@ -271,9 +260,19 @@ int main(int argc, char *argv[]) {
             // Send the DISCONNECT frame to the server
             protocol->send("DISCONNECT", headers, "");
 
-            // Wait for the listener thread to terminate, 
+            // Wait for the communication thread to terminate, 
             // which is done when the server sends a RECEIPT frame for the discconect request (in the protocol)
             communicator.join();
+
+            // Close the socket gracefully
+            connectionHandler->close();
+
+            // Clean up resources
+            delete connectionHandler;
+            connectionHandler = nullptr;
+
+            delete protocol;
+            protocol = nullptr;
         }
 
         else {
@@ -281,6 +280,15 @@ int main(int argc, char *argv[]) {
         }
 
         if(protocol && protocol->hasErrorOccurred()) {
+            // Close the socket
+            connectionHandler->close();
+
+            // Clean up resources
+            delete connectionHandler;
+            connectionHandler = nullptr;
+
+            delete protocol;
+            protocol = nullptr;
             break;
         }
     }
