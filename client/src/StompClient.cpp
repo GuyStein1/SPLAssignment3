@@ -9,19 +9,19 @@ std::mutex mutex; // Ensures thread safety when modifying shared objects
 
 
 // Listens for incoming STOMP messages from the server, used for the thread in charge of communication
-void communicate(StompProtocol *protocol, ConnectionHandler *connectionHandler) {
+void communicate(StompProtocol& protocol, ConnectionHandler& connectionHandler) {
     std::string response;
-    while (!protocol->shouldStopCommunication()) {
+    while (!protocol.shouldStopCommunication()) {
 
         response.clear();  // Ensure response is empty before reading a new frame
 
-        if (!connectionHandler->getFrameAscii(response, '\0')) {
+        if (!connectionHandler.getFrameAscii(response, '\0')) {
             std::cerr << "Server connection lost." << std::endl;
-            protocol->signalStopCommunication();
+            protocol.signalStopCommunication();
             break;
         }
 
-        protocol->parseFrame(response);
+        protocol.parseFrame(response);
     }
 }
 
@@ -37,10 +37,27 @@ int main(int argc, char *argv[]) {
         std::vector<std::string> tokens;
         KeyboardInput::split_str(userInput, ' ', tokens); // Use split_str to parse user input
 
-        if (tokens.empty()) continue;
-
 		// Extract first word in the input to know the type of command
         std::string command = tokens[0];
+
+        if (protocol && protocol->hasErrorOccurred()) {
+            // Wait for the communication thread to terminate, 
+            // which is done when the server sends a RECEIPT frame for the discconect request (in the protocol)
+            communicator.join();
+
+            // Close the socket
+            connectionHandler->close();
+
+            // Clean up resources
+            delete connectionHandler;
+            connectionHandler = nullptr;
+
+            delete protocol;
+            protocol = nullptr;
+            break;
+        }
+
+        if (tokens.empty()) continue;
 
         if (command == "login") {
 
@@ -96,8 +113,8 @@ int main(int argc, char *argv[]) {
             };
             protocol->send("CONNECT", headers, "");
 
-            // Start communication thread.
-            communicator = std::thread(communicate, protocol, connectionHandler);
+            // Start communication thread with references
+            communicator = std::thread(communicate, std::ref(*protocol), std::ref(*connectionHandler));
         }
 
         else if (command == "join") {
@@ -126,6 +143,9 @@ int main(int argc, char *argv[]) {
 
             // Store the receipt mapping
             protocol->storeReceipt(receiptId, "Joined channel " + tokens[1]);
+
+            // Store the subscription ID for this channel
+            protocol->storeSubscriptionId(tokens[1], subscriptionId);  
 
             // Send the SUBSCRIBE frame to the server
             protocol->send("SUBSCRIBE", headers, "");
@@ -277,19 +297,6 @@ int main(int argc, char *argv[]) {
 
         else {
             std::cerr << "Unknown command: " << command << std::endl;
-        }
-
-        if(protocol && protocol->hasErrorOccurred()) {
-            // Close the socket
-            connectionHandler->close();
-
-            // Clean up resources
-            delete connectionHandler;
-            connectionHandler = nullptr;
-
-            delete protocol;
-            protocol = nullptr;
-            break;
         }
     }
 

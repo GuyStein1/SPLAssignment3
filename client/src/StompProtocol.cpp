@@ -131,7 +131,7 @@ void StompProtocol::handleConnected() {
 // Handles MESSAGE frames, extracting and storing received event information.
 void StompProtocol::handleMessage(const std::map<std::string, std::string>& headers, const std::string& body) {
     std::string destination = headers.at("destination"); // Extracts topic destination.
-    
+
     // std::cout << "New message received in " << destination << ":\n" << body << std::endl;
 
     Event newEvent(body); // Parses the body as an Event object.
@@ -144,7 +144,7 @@ void StompProtocol::handleError(const std::map<std::string, std::string>& header
     for (const auto& [key, value] : headers) {
         std::cerr << key << ": " << value << std::endl;
     }
-    std::cerr << "Error message: " << body << std::endl;
+    std::cerr << body << std::endl;
 
     // Signal communication thread to stop
     signalStopCommunication();
