@@ -7,29 +7,19 @@
 
 std::mutex mutex; // Ensures thread safety when modifying shared objects
 
-// Handles communication with the server: listens for incoming messages and sends queued frames.
+// Listens for incoming STOMP messages from the server, used for the thread in charge of communication
 void communicate(StompProtocol &protocol, ConnectionHandler &connectionHandler) {
     std::string response;
-
-    while (!protocol.shouldStopCommunication()) {
-        std::string frameToSend;
-
-        // Check if there are frames to send
-        while (protocol.dequeueMessage(frameToSend)) {
-            connectionHandler.sendLine(frameToSend); // Send frame to the server
-        }
-
-        // Listen for incoming messages
-        if (connectionHandler.getLine(response)) {
-            std::lock_guard<std::mutex> lock(mutex);
-            protocol.parseFrame(response);
-        }
+    while (!protocol.shouldStopCommunication() && connectionHandler.getLine(response)) { // Continuously reads messages from server
+        std::lock_guard<std::mutex> lock(mutex); // Ensures thread safety
+        protocol.parseFrame(response); // Processes the received STOMP frame
     }
 }
 
 int main(int argc, char *argv[]) {
     ConnectionHandler* connectionHandler = nullptr; // Pointer to manage connection
     StompProtocol* protocol = nullptr; // Pointer to manage STOMP protocol
+
     std::thread communicator; // Communication thread
 
     std::string userInput;
@@ -64,7 +54,7 @@ int main(int argc, char *argv[]) {
                 continue;
             }
             std::string serverHost = hostPort.substr(0, colonPosition);
-			// Convert port string to int
+			// Convert port string to short
             short serverPort = std::stoi(hostPort.substr(colonPosition + 1));
 
 			// Extract username and password

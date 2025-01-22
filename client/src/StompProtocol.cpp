@@ -55,23 +55,6 @@ void StompProtocol::signalStopCommunication() { stopCommunication = true; } // S
 
 bool StompProtocol::shouldStopCommunication() const { return stopCommunication; } // Check stop flag
 
-// Adds a frame to the outgoing message queue
-void StompProtocol::enqueueMessage(const std::string& frame) {
-    std::lock_guard<std::mutex> lock(sendQueueMutex);
-    outgoingMessages.push(frame);
-}
-
-// Retrieves and removes the next frame from the queue
-bool StompProtocol::dequeueMessage(std::string& frame) {
-    std::lock_guard<std::mutex> lock(sendQueueMutex);
-    if (outgoingMessages.empty()) {
-        return false; // Queue is empty, nothing to send
-    }
-    frame = outgoingMessages.front();
-    outgoingMessages.pop();
-    return true;
-}
-
 // Sends a STOMP frame with given command, headers, and body.
 void StompProtocol::send(const std::string& command, const std::map<std::string, std::string>& headers, const std::string& body) {
     if (!connected && command != "CONNECT") {
@@ -91,8 +74,8 @@ void StompProtocol::send(const std::string& command, const std::map<std::string,
 
     std::string frameStr = frame.str();
 
-    // Add the frame to the queue for the communication thread to send.
-    enqueueMessage(frameStr);
+    // Send the frame to the sever using the connection handler.
+    connectionHandler.sendLine(frameStr);
 }
 
 // Parses and processes an incoming STOMP frame from the server.
@@ -159,6 +142,7 @@ void StompProtocol::handleReceipt(const std::map<std::string, std::string>& head
         if (receiptMap.find(receiptId) != receiptMap.end()) {
             std::string requestType = receiptMap[receiptId];
               if (requestType == "Logout") {
+                
                 std::cout << "Logged out" << std::endl;
 
                 // Signal communication thread to stop

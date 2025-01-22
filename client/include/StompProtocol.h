@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include "event.h"
 #include "ConnectionHandler.h"
-#include <queue>   // For the send queue
+
 #include <mutex>   // For thread safety
 
 class StompProtocol
@@ -38,11 +38,6 @@ public:
     void signalStopCommunication(); // Signal communication thread to stop
     bool shouldStopCommunication() const; // Check stop flag
 
-    // Adds a frame to the outgoing message queue (thread-safe)
-    void enqueueMessage(const std::string& frame);
-    // Retrieves and removes the next frame from the queue (thread-safe)
-    bool dequeueMessage(std::string& frame);
-
 private:
     ConnectionHandler &connectionHandler;                   // Handles communication with the server.
     bool connected;                                         // Indicates if the client is connected.
@@ -55,12 +50,6 @@ private:
 
     // Used to track the subscription ID the client useed for each channel, to know which ID to use for UNSUBSCRIBE.
     std::unordered_map<std::string, int> subscriptionIds;  // Maps channel → subscription ID
-
-    // Stores full STOMP frames as strings to be sent to the server.
-    std::queue<std::string> outgoingMessages;
-
-    // Mutex for thread safety.
-    std::mutex sendQueueMutex;
 
     // Mutex for connection status
     std::mutex connectionMutex; 
