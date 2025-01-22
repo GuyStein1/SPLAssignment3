@@ -11,9 +11,17 @@ std::mutex mutex; // Ensures thread safety when modifying shared objects
 // Listens for incoming STOMP messages from the server, used for the thread in charge of communication
 void communicate(StompProtocol *protocol, ConnectionHandler *connectionHandler) {
     std::string response;
-    while (!protocol->shouldStopCommunication() && connectionHandler->getFrameAscii(response, '\0')) { // Continuously reads messages from server
-        std::lock_guard<std::mutex> lock(mutex); // Ensures thread safety
-        protocol->parseFrame(response); // Processes the received STOMP frame
+    while (!protocol->shouldStopCommunication()) {
+
+        response.clear();  // Ensure response is empty before reading a new frame
+
+        if (!connectionHandler->getFrameAscii(response, '\0')) {
+            std::cerr << "Server connection lost." << std::endl;
+            protocol->signalStopCommunication();
+            break;
+        }
+
+        protocol->parseFrame(response);
     }
 
     // Close the socket gracefully
@@ -141,7 +149,7 @@ int main(int argc, char *argv[]) {
 
             // Check argument count
             if (tokens.size() != 2) {
-                std::cerr << "Usage: exit {channel_name}" << std::endl;
+                std::cerr << "exit commmand needs 1 args: {channel_name}" << std::endl;
                 continue;
             }
 
