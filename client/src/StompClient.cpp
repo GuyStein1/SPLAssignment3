@@ -51,6 +51,8 @@ int main(int argc, char *argv[]) {
 
     std::thread communicator; // Communication thread
 
+    std::string username; // Username for the current session
+
     std::string userInput;
     while (true) {
 
@@ -91,7 +93,7 @@ int main(int argc, char *argv[]) {
             short serverPort = std::stoi(hostPort.substr(colonPosition + 1));
 
 			// Extract username and password
-            std::string username = tokens[2];
+            username = tokens[2];
             std::string password = tokens[3];
 
             // Create connectionHandler and protocol
@@ -141,7 +143,7 @@ int main(int argc, char *argv[]) {
 
             // Create the SUBSCRIBE frame headers
             std::map<std::string, std::string> headers = {
-                {"destination", "/" + tokens[1]},
+                {"destination", tokens[1]},
                 {"id", std::to_string(subscriptionId)},
                 {"receipt", std::to_string(receiptId)}
             };
@@ -219,11 +221,11 @@ int main(int argc, char *argv[]) {
             for (const Event &event : parsedEvents.events) {
                 // Prepare the headers for the SEND frame
                 std::map<std::string, std::string> headers = {
-                    {"destination", "/" + parsedEvents.channel_name} // Send to the correct channel
+                    {"destination", parsedEvents.channel_name} // Send to the correct channel
                 };
 
                 // Construct the body in the correct format
-                std::string body = "user:" + event.getEventOwnerUser() + "\n" +
+                std::string body = "user:" + username + "\n" +
                                 "city:" + event.get_city() + "\n" +
                                 "event name:" + event.get_name() + "\n" +
                                 "date time:" + std::to_string(event.get_date_time()) + "\n" +

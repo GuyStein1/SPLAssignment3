@@ -195,13 +195,26 @@ std::string StompProtocol::epochToDate(int epochTime) const {
 
 // Method to generate summary output 
 void StompProtocol::summarizeEmergencyChannel(const std::string& channel, const std::string& user, const std::string& filePath) {
+    // Relevant events for the user
     std::vector<Event> relevantEvents;
+
+    int activeCount = 0;  // Count of 'true' active
+    int forcesArrivalCount = 0;  // Count of 'true' forces_arrival_at_scene
 
     // Check if the channel exists and filter events by user
     if (eventSummary.find(channel) != eventSummary.end()) {
         for (const Event& event : eventSummary[channel]) {
             if (event.getEventOwnerUser() == user) {
                 relevantEvents.push_back(event);
+
+                // Check for 'active' and 'forces_arrival_at_scene' in general_information
+                const auto& generalInfo = event.get_general_information();
+                if (generalInfo.find("active") != generalInfo.end() && generalInfo.at("active") == "true") {
+                    activeCount++;
+                }
+                if (generalInfo.find("forces_arrival_at_scene") != generalInfo.end() && generalInfo.at("forces_arrival_at_scene") == "true") {
+                    forcesArrivalCount++;
+                }
             }
         }
     }
@@ -213,13 +226,15 @@ void StompProtocol::summarizeEmergencyChannel(const std::string& channel, const 
         return;
     }
 
-    // Print header
+    // Print header with missing stats
     outFile << "Channel " << channel << "\n";
     outFile << "Stats:\n";
     outFile << "Total: " << relevantEvents.size() << "\n";
+    outFile << "active: " << activeCount << "\n";
+    outFile << "forces arrival at scene: " << forcesArrivalCount << "\n\n";
 
     // Print event reports header
-    outFile << "\nEvent Reports:\n";
+    outFile << "\nEvent Reports:\n\n";
 
     if (!relevantEvents.empty()) {
         // Sort events by date_time, then by name lexicographically
@@ -240,7 +255,7 @@ void StompProtocol::summarizeEmergencyChannel(const std::string& channel, const 
                 shortDescription += "...";
             }
 
-            outFile << "Report_" << (i + 1) << ":\n";
+            outFile << "\nReport_" << (i + 1) << ":\n";
             outFile << "city: " << event.get_city() << "\n";
             outFile << "date time: " << epochToDate(event.get_date_time()) << "\n";
             outFile << "event name: " << event.get_name() << "\n";
