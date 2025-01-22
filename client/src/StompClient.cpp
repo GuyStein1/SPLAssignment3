@@ -11,7 +11,7 @@ std::mutex mutex; // Ensures thread safety when modifying shared objects
 // Listens for incoming STOMP messages from the server, used for the thread in charge of communication
 void communicate(StompProtocol *protocol, ConnectionHandler *connectionHandler) {
     std::string response;
-    while (!protocol->shouldStopCommunication() && connectionHandler->getLine(response)) { // Continuously reads messages from server
+    while (!protocol->shouldStopCommunication() && connectionHandler->getFrameAscii(response, '\0')) { // Continuously reads messages from server
         std::lock_guard<std::mutex> lock(mutex); // Ensures thread safety
         protocol->parseFrame(response); // Processes the received STOMP frame
     }

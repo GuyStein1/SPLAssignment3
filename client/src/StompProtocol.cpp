@@ -77,12 +77,18 @@ void StompProtocol::send(const std::string& command, const std::map<std::string,
         frame << key << ":" << value << "\n";
     }
 
-    frame << "\n" << body << "\n\0"; // Separate headers from body and add STOMP null terminator.
+    if (!body.empty()) {
+        frame << "\n" << body << "\0"; // Separate headers from body and add STOMP null terminator.
+    } else {
+        frame << "\n\0"; // Add STOMP null terminator.
+    }
 
     std::string frameStr = frame.str();
 
-    // Send the frame to the sever using the connection handler.
-    connectionHandler.sendLine(frameStr);
+    // std::cout << "Sending frame: " << frameStr << std::endl; // Add logging
+
+    // Send the frame to the server using the connection handler.
+    connectionHandler.sendFrameAscii(frameStr, '\0'); // Use sendFrameAscii to add the null character
 }
 
 // Parses and processes an incoming STOMP frame from the server.
