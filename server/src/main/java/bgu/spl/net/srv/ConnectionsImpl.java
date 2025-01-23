@@ -17,8 +17,11 @@ public class ConnectionsImpl<T> implements Connections<T> {
     // Shared topic subscriptions: (topic -> {connectionId -> subscriptionId})
     private static final Map<String, Map<Integer, Integer>> topicSubscriptions = new ConcurrentHashMap<>();
 
-    // Stores valid user credentials (for authentication)
+    // Stores valid user credentials for authentication (username -> password) 
     private static final Map<String, String> users = new ConcurrentHashMap<>();
+
+    // Stores active users (connectionId -> username)
+    private static final Map<Integer, String> activeUsers = new ConcurrentHashMap<>(); 
 
     private static final AtomicInteger messageCounter = new AtomicInteger(0); // Unique message ID counter
 
@@ -42,6 +45,9 @@ public class ConnectionsImpl<T> implements Connections<T> {
                 subscribers.remove(connectionId);
             }
         }
+
+        // Remove user from active users list
+        activeUsers.remove(connectionId);
     }
 
     // Registers a new client connection.
@@ -50,15 +56,21 @@ public class ConnectionsImpl<T> implements Connections<T> {
     }
 
     // Registers a new user or verifies credentials.
-    public boolean authenticateUser(String username, String password) {
+    public boolean authenticateUser(int connectionId, String username, String password) {
         synchronized (users) {
             if (users.containsKey(username)) {
                 return users.get(username).equals(password); // Validate password
             } else {
                 users.put(username, password); // Register new user
+                // Mark user as active (store connectionId -> username)
+                activeUsers.put(connectionId, username);
                 return true;
             }
         }
+    }
+
+    public boolean isUserActive(String username) {
+        return activeUsers.containsValue(username);
     }
 
     // Generates a unique message ID.

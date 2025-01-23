@@ -64,7 +64,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
      */
     private void handleConnect(StompFrame message) {
         if (connected) {
-            sendError("Duplicate login attempt.", message.getHeader("receipt"), message);
+            sendError("User already logged in", message.getHeader("receipt"), message);
             return;
         }
 
@@ -82,7 +82,13 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
             return;
         }
 
-        if (!connections.authenticateUser(login, passcode)) {
+         // Check if user is already active
+        if (connections.isUserActive(login)) {
+            sendError("User already logged in", receiptId, message);
+            return;
+        }
+
+        if (!connections.authenticateUser(connectionId, login, passcode)) {
             sendError("Invalid password for user: " + login, message.getHeader("receipt"), message);
             return;
         }

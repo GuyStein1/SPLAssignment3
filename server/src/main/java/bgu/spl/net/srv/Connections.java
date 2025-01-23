@@ -14,7 +14,9 @@ public interface Connections<T> {
     // Added methods:
     void register(int connectionId, ConnectionHandler<T> handler);
 
-    boolean authenticateUser(String login, String passcode);
+    boolean authenticateUser(int connectionId, String login, String passcode);
+
+    boolean isUserActive(String username);
 
     void removeSubscription(String topic, int connectionId);
 

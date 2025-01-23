@@ -263,7 +263,7 @@ int main(int argc, char *argv[]) {
             }
 
             // Path to bin folder
-            std::string binPath = "../bin/" + tokens[3];;
+            std::string binPath = "../bin/" + tokens[3];
 
             // Call the summarize function with the correct file path
             protocol->summarizeEmergencyChannel(tokens[1], tokens[2], binPath);
