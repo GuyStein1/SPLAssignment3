@@ -4,10 +4,7 @@ import bgu.spl.net.api.StompMessagingProtocol;
 import bgu.spl.net.srv.Connections;
 
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.HashMap;
-import java.util.Iterator;
 
 public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompFrame> {
     private int connectionId;
@@ -27,9 +24,6 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
     @Override
     public void process(StompFrame message) {
         // Handle different STOMP commands
-
-        // Print for debugging
-        System.out.println("Processing: " + message.toString());
 
         switch (message.getCommand()) {
             case "CONNECT":
@@ -88,6 +82,7 @@ public class StompMessagingProtocolImpl implements StompMessagingProtocol<StompF
             return;
         }
 
+        // Validate the user's credentials
         if (!connections.authenticateUser(connectionId, login, passcode)) {
             sendError("Invalid password for user: " + login, message.getHeader("receipt"), message);
             return;

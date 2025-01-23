@@ -47,7 +47,9 @@ public class ConnectionsImpl<T> implements Connections<T> {
         }
 
         // Remove user from active users list
-        activeUsers.remove(connectionId);
+        synchronized (activeUsers) {
+            activeUsers.remove(connectionId);
+        }
     }
 
     // Registers a new client connection.

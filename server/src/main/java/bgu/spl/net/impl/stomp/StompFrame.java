@@ -42,12 +42,6 @@ public class StompFrame {
         return headers.get(key);
     }
 
-    // Adds a new header or updates an existing one
-    // DO WE NEED THIS????!?!?!?!?!!?!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    public void addHeader(String key, String value) {
-        headers.put(key, value);
-    }
-
     // Converts StompFrame to String
     @Override
     public String toString() {
