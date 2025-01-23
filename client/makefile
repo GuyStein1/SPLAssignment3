@@ -1,13 +1,7 @@
 CFLAGS:=-c -Wall -Weffc++ -g -std=c++11 -Iinclude
 LDFLAGS:=-lboost_system -lpthread
 # TODO change the makefile for StompEMIlient
-all: EchoClient StompWCIClient
-
-EchoClient: bin/ConnectionHandler.o bin/echoClient.o
-	g++ -o bin/EchoClient bin/ConnectionHandler.o bin/echoClient.o $(LDFLAGS)
-
-StompWCIClient: bin/ConnectionHandler.o bin/StompClient.o bin/event.o
-	g++ -o bin/StompWCIClient bin/ConnectionHandler.o bin/StompClient.o $(LDFLAGS)
+all: StompWCIClient
 
 bin/ConnectionHandler.o: src/ConnectionHandler.cpp
 	g++ $(CFLAGS) -o bin/ConnectionHandler.o src/ConnectionHandler.cpp
@@ -32,6 +26,7 @@ StompWCIClient: bin/ConnectionHandler.o bin/StompClient.o bin/event.o bin/StompP
 	g++ -o bin/StompWCIClient bin/ConnectionHandler.o bin/StompClient.o bin/event.o bin/StompProtocol.o bin/KeyboardInput.o $(LDFLAGS)
 
 .PHONY: clean
+# Delete all files in the bin/ directory except StompESClient
 clean:
-	rm -f bin/*
+	find bin -type f ! -name "StompESClient" -delete 
 	

@@ -231,7 +231,10 @@ int main(int argc, char *argv[]) {
                                 "date time:" + std::to_string(event.get_date_time()) + "\n" +
                                 "general information:\n";
 
-                for (const auto &[key, value] : event.get_general_information()) {
+                for (std::map<std::string, std::string>::const_iterator it = event.get_general_information().begin(); 
+                    it != event.get_general_information().end(); ++it) {
+                    const std::string& key = it->first;
+                    const std::string& value = it->second;
                     body += " " + key + ":" + value + "\n";  // Ensure proper formatting
                 }
 

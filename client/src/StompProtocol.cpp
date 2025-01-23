@@ -7,8 +7,18 @@
 #include <algorithm>
 
 // Constructor initializes STOMP protocol with connection handler.
-StompProtocol::StompProtocol(ConnectionHandler &handler) : 
-connectionHandler(handler), connected(false), stopCommunication(false), errorOccured(false) {}
+StompProtocol::StompProtocol(ConnectionHandler &handler) :
+    connectionHandler(handler),  // Reference must be initialized first
+    connected(false),
+    stopCommunication(false),
+    errorOccured(false),
+    idCounter(0),   // Explicitly initialize counters
+    receiptCounter(0),
+    eventSummary(),  // Optional, included for clarity (hash maps are initialized automaticcly in c++).
+    receiptMap(),
+    subscriptionIds(),
+    connectionMutex(), 
+    errorMutex() {}    
 
 int StompProtocol::getNextId() {
     return idCounter++;  // Generate a unique ID for subscriptions
@@ -73,7 +83,10 @@ void StompProtocol::send(const std::string& command, const std::map<std::string,
     frame << command << "\n";
 
     // Append headers to the frame.
-    for (const auto& [key, value] : headers) {
+    for (std::map<std::string, std::string>::const_iterator it = headers.begin(); 
+        it != headers.end(); ++it) {
+        const std::string& key = it->first;
+        const std::string& value = it->second;
         frame << key << ":" << value << "\n";
     }
 
@@ -141,9 +154,14 @@ void StompProtocol::handleMessage(const std::map<std::string, std::string>& head
 // Handles ERROR frames by displaying error details.
 void StompProtocol::handleError(const std::map<std::string, std::string>& headers, const std::string& body) {
     std::cerr << "\nERROR received from server:\n";
-    for (const auto& [key, value] : headers) {
+
+    for (std::map<std::string, std::string>::const_iterator it = headers.begin(); 
+        it != headers.end(); ++it) {
+        const std::string& key = it->first;
+        const std::string& value = it->second;
         std::cerr << key << ": " << value << std::endl;
     }
+
     std::cerr << body << std::endl;
 
     // Signal communication thread to stop
@@ -256,10 +274,10 @@ void StompProtocol::summarizeEmergencyChannel(const std::string& channel, const 
             }
 
             outFile << "\nReport_" << (i + 1) << ":\n";
-            outFile << "city: " << event.get_city() << "\n";
-            outFile << "date time: " << epochToDate(event.get_date_time()) << "\n";
-            outFile << "event name: " << event.get_name() << "\n";
-            outFile << "summary: " << shortDescription << "\n";
+            outFile << "\tcity: " << event.get_city() << "\n";
+            outFile << "\tdate time: " << epochToDate(event.get_date_time()) << "\n";
+            outFile << "\tevent name: " << event.get_name() << "\n";
+            outFile << "\tsummary: " << shortDescription << "\n";
         }
     }
 

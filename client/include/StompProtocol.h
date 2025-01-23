@@ -41,10 +41,14 @@ public:
     bool hasErrorOccurred(); // Check if an error occurred
 
 private:
-    ConnectionHandler &connectionHandler;                   // Handles communication with the server.
-    bool connected;                                         // Indicates if the client is connected.
-    bool stopCommunication;                                 // Signals the communication thread to stop.
-    bool errorOccured;                                      // Indicates if an error occurred.
+    ConnectionHandler &connectionHandler; // Handles communication with the server.
+    bool connected;    // Indicates if the client is connected.
+    bool stopCommunication;  // Signals the communication thread to stop.
+    bool errorOccured;  // Indicates if an error occurred.
+
+    
+    int idCounter;       // Tracks unique subscription IDs per client
+    int receiptCounter;  // Tracks unique receipt IDs per client
 
     std::unordered_map<std::string, std::vector<Event>> eventSummary; // Stores received events.
 
@@ -59,9 +63,6 @@ private:
 
     // Mutex for error status
     std::mutex errorMutex; 
-
-    int idCounter = 0;       // Tracks unique subscription IDs per client
-    int receiptCounter = 0;  // Tracks unique receipt IDs per client
 
     void handleConnected();                                                                         // Handles a CONNECTED frame.
     void handleMessage(const std::map<std::string, std::string> &headers, const std::string &body); // Handles MESSAGE frames.
