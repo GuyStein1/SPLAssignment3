@@ -56,15 +56,7 @@ int main(int argc, char *argv[]) {
     std::string userInput;
     while (true) {
 
-        try
-        {
-            userInput = KeyboardInput::readLine();
-        }
-        catch (const std::exception &e)
-        {
-            std::cerr << "Error reading input: " << e.what() << std::endl;
-            continue; // Prevent crash, allow user to retry
-        }
+        userInput = KeyboardInput::readLine();
 
         std::vector<std::string> tokens;
         KeyboardInput::split_str(userInput, ' ', tokens); // Use split_str to parse user input
