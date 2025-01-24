@@ -67,6 +67,10 @@ bool StompProtocol::hasErrorOccurred() {
     std::lock_guard<std::mutex> lock(errorMutex);
     return errorOccured; 
 } 
+// Check if the client is subscribed to a channel
+bool StompProtocol::hasSubscription(const std::string& channel) {
+    return subscriptionIds.find(channel) != subscriptionIds.end();
+}
 
 void StompProtocol::signalStopCommunication() { stopCommunication = true; } // Signal communication thread to stop
 

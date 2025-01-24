@@ -47,9 +47,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
         }
 
         // Remove user from active users list
-        synchronized (activeUsers) {
-            activeUsers.remove(connectionId);
-        }
+        activeUsers.remove(connectionId);
     }
 
     // Registers a new client connection.
@@ -84,10 +82,6 @@ public class ConnectionsImpl<T> implements Connections<T> {
     public void addSubscription(String topic, int connectionId, int subscriptionId) {
         topicSubscriptions.putIfAbsent(topic, new ConcurrentHashMap<>());
         topicSubscriptions.get(topic).put(connectionId, subscriptionId);
-
-        // Prints for debugging
-        System.out.println("subscribe excecuted");
-        System.out.println(topicSubscriptions.toString());
     }
 
     // Removes a client subscription.

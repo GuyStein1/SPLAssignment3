@@ -137,6 +137,12 @@ int main(int argc, char *argv[]) {
                 continue;
             }
 
+            // Check if the user is already subscribed to the channel
+            if (protocol->hasSubscription(tokens[1])) {
+                std::cerr << "Already subscribed to channel " << tokens[1] << std::endl;
+                continue;
+            }
+            
             // Generate unique IDs for subscription and receipt
             int subscriptionId = protocol->getNextId();
             int receiptId = protocol->getNextReceiptId();

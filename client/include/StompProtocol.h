@@ -39,6 +39,8 @@ public:
     bool shouldStopCommunication() const; // Check stop flag
 
     bool hasErrorOccurred(); // Check if an error occurred
+    
+    bool hasSubscription(const std::string& channel); // Check if the client is subscribed to a channel
 
 private:
     ConnectionHandler &connectionHandler; // Handles communication with the server.
