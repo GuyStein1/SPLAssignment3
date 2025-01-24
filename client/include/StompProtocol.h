@@ -34,6 +34,7 @@ public:
 
     void storeSubscriptionId(const std::string& channel, int subscriptionId); // Stores subscription ID used for subscribing to a channel
     int getSubscriptionId(const std::string& channel); // Retrieves the subscription ID used for subscribing to a channel
+    void removeSubscription(const std::string& channel); // Removes the subscription
 
     void signalStopCommunication(); // Signal communication thread to stop
     bool shouldStopCommunication() const; // Check stop flag

@@ -190,9 +190,12 @@ int main(int argc, char *argv[]) {
 
             // Means not subscribed to this channel, can't unsubscribe.
             if (subscriptionId == -1) {
-                std::cerr << "you are not subscribed to channel " << channel << std::endl;
+                std::cerr << "You are not subscribed to channel " << channel << std::endl;
                 continue;
             }
+
+            // Remove the subscription ID from the map
+            protocol->removeSubscription(channel);
 
             // Prepare UNSUBSCRIBE frame
             std::map<std::string, std::string> headers = {

@@ -39,6 +39,10 @@ void StompProtocol::storeSubscriptionId(const std::string& channel, int subscrip
     subscriptionIds[channel] = subscriptionId;
 }
 
+void StompProtocol::removeSubscription(const std::string& channel) {
+    subscriptionIds.erase(channel);
+}
+
 // Stores the request type associated with a receipt ID.
 void StompProtocol::storeReceipt(int receiptId, const std::string& requestType) {
     receiptMap[receiptId] = requestType;

@@ -22,7 +22,7 @@ StompEMIClient: bin/ConnectionHandler.o bin/StompClient.o bin/event.o bin/StompP
 	g++ -o bin/StompEMIClient bin/ConnectionHandler.o bin/StompClient.o bin/event.o bin/StompProtocol.o bin/KeyboardInput.o $(LDFLAGS)
 
 .PHONY: clean
-# Delete all files in the bin/ directory except StompESClient
+# Delete all files in the bin/ directory except StompESClient 
 clean:
 	find bin -type f ! -name "StompESClient" -delete 
 	
