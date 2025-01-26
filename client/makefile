@@ -12,14 +12,14 @@ bin/event.o: src/event.cpp
 bin/StompProtocol.o: src/StompProtocol.cpp
 	g++ $(CFLAGS) -o bin/StompProtocol.o src/StompProtocol.cpp
 
-bin/KeyboardInput.o: src/KeyboardInput.cpp
-	g++ $(CFLAGS) -o bin/KeyboardInput.o src/KeyboardInput.cpp
+bin/keyboardInput.o: src/keyboardInput.cpp
+	g++ $(CFLAGS) -o bin/keyboardInput.o src/keyboardInput.cpp
 
-bin/StompClient.o: src/StompClient.cpp src/StompProtocol.cpp src/ConnectionHandler.cpp src/KeyboardInput.cpp
+bin/StompClient.o: src/StompClient.cpp src/StompProtocol.cpp src/ConnectionHandler.cpp src/keyboardInput.cpp
 	g++ $(CFLAGS) -o bin/StompClient.o src/StompClient.cpp
 
-StompEMIClient: bin/ConnectionHandler.o bin/StompClient.o bin/event.o bin/StompProtocol.o bin/KeyboardInput.o
-	g++ -o bin/StompEMIClient bin/ConnectionHandler.o bin/StompClient.o bin/event.o bin/StompProtocol.o bin/KeyboardInput.o $(LDFLAGS)
+StompEMIClient: bin/ConnectionHandler.o bin/StompClient.o bin/event.o bin/StompProtocol.o bin/keyboardInput.o
+	g++ -o bin/StompEMIClient bin/ConnectionHandler.o bin/StompClient.o bin/event.o bin/StompProtocol.o bin/keyboardInput.o $(LDFLAGS)
 
 .PHONY: clean
 # Delete all files in the bin/ directory except StompESClient 
